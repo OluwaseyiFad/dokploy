@@ -233,7 +233,7 @@ export const domainRouter = createTRPCRouter({
 		.input(
 			z.object({
 				domain: z.string(),
-				serverIp: z.string().optional(),
+				serverIp: z.string().trim().optional(),
 			}),
 		)
 		.mutation(async ({ input }) => {

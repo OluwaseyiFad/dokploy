@@ -65,7 +65,7 @@ export const deploySuggestionSchema = z.object({
 	domains: z
 		.array(
 			z.object({
-				host: z.string().min(1),
+				host: z.string().trim().min(1),
 				port: z.number().min(1),
 				serviceName: z.string().min(1),
 			}),

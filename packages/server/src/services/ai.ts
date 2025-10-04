@@ -129,9 +129,9 @@ export const suggestVariants = async ({
 									value: z.string(),
 								}),
 							),
-							domains: z.array(
+								domains: z.array(
 								z.object({
-									host: z.string(),
+									host: z.string().trim(),
 									port: z.number(),
 									serviceName: z.string(),
 								}),
