@@ -18,6 +18,7 @@ import {
 	FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { ToggleVisibilityInput } from "@/components/shared/toggle-visibility-input";
 import { api } from "@/utils/api";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PenBoxIcon, PlusIcon } from "lucide-react";
@@ -151,7 +152,16 @@ export const HandleSecurity = ({
 									<FormItem>
 										<FormLabel>Password</FormLabel>
 										<FormControl>
-											<Input placeholder="test" {...field} />
+											{/* Prevent internal buttons from triggering form submit by
+												cancelling the click default action at the component boundary.
+												This avoids changing the shared ToggleVisibilityInput file. */}
+											<div onClickCapture={(e) => e.preventDefault()}>
+												<ToggleVisibilityInput
+													placeholder="test"
+													value={field.value || ""}
+													onChange={(e) => field.onChange(e.target.value)}
+												/>
+											</div>
 										</FormControl>
 
 										<FormMessage />
