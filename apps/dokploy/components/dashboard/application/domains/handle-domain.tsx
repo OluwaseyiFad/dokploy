@@ -47,7 +47,7 @@ export type CacheType = "fetch" | "cache";
 
 export const domain = z
 	.object({
-		host: z.string().min(1, { message: "Add a hostname" }),
+		host: z.string().trim().min(1, { message: "Add a hostname" }),
 		path: z.string().min(1).optional(),
 		port: z
 			.number()
