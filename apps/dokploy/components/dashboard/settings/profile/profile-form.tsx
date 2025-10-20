@@ -37,6 +37,7 @@ const profileSchema = z.object({
 	currentPassword: z.string().nullable(),
 	image: z.string().optional(),
 	allowImpersonation: z.boolean().optional().default(false),
+	name: z.string().optional(),
 });
 
 type Profile = z.infer<typeof profileSchema>;
@@ -84,6 +85,7 @@ export const ProfileForm = () => {
 			image: data?.user?.image || "",
 			currentPassword: "",
 			allowImpersonation: data?.user?.allowImpersonation || false,
+			name: data?.user?.name || "",
 		},
 		resolver: zodResolver(profileSchema),
 	});
@@ -97,12 +99,14 @@ export const ProfileForm = () => {
 					image: data?.user?.image || "",
 					currentPassword: form.getValues("currentPassword") || "",
 					allowImpersonation: data?.user?.allowImpersonation,
+					name: data?.user?.name || "",
 				},
 				{
 					keepValues: true,
 				},
 			);
 			form.setValue("allowImpersonation", data?.user?.allowImpersonation);
+			form.setValue("name", data?.user?.name || "");
 
 			if (data.user.email) {
 				generateSHA256Hash(data.user.email).then((hash) => {
@@ -119,6 +123,7 @@ export const ProfileForm = () => {
 			image: values.image,
 			currentPassword: values.currentPassword || undefined,
 			allowImpersonation: values.allowImpersonation,
+			name: values.name,
 		})
 			.then(async () => {
 				await refetch();
@@ -128,6 +133,7 @@ export const ProfileForm = () => {
 					password: "",
 					image: values.image,
 					currentPassword: "",
+					name: values.name,
 				});
 			})
 			.catch(() => {
@@ -167,6 +173,22 @@ export const ProfileForm = () => {
 										className="grid gap-4"
 									>
 										<div className="space-y-4">
+											<FormField
+												control={form.control}
+												name="name"
+												render={({ field }) => (
+													<FormItem>
+														<FormLabel>Display Name</FormLabel>
+														<FormControl>
+															<Input
+																placeholder="Enter your display name"
+																{...field}
+															/>
+														</FormControl>
+														<FormMessage />
+													</FormItem>
+												)}
+											/>
 											<FormField
 												control={form.control}
 												name="email"
