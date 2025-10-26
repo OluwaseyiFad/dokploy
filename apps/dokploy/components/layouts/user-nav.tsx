@@ -24,15 +24,12 @@ import { useRouter } from "next/router";
 import { ModeToggle } from "../ui/modeToggle";
 import { SidebarMenuButton } from "../ui/sidebar";
 
-const _AUTO_CHECK_UPDATES_INTERVAL_MINUTES = 7;
-
 export const UserNav = () => {
 	const router = useRouter();
 	const { data } = api.user.get.useQuery();
 	const { data: isCloud } = api.settings.isCloud.useQuery();
 
 	const { locale, setLocale } = useLocale();
-	// const { mutateAsync } = api.auth.logout.useMutation();
 
 	return (
 		<DropdownMenu>
@@ -41,7 +38,7 @@ export const UserNav = () => {
 					size="lg"
 					className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
 				>
-					<Avatar className="h-8 w-8 rounded-lg">
+					<Avatar className="h-8 w-8 rounded-lg" key={data?.user?.image}>
 						<AvatarImage
 							src={data?.user?.image || ""}
 							alt={data?.user?.image || ""}
@@ -154,9 +151,6 @@ export const UserNav = () => {
 							await authClient.signOut().then(() => {
 								router.push("/");
 							});
-							// await mutateAsync().then(() => {
-							// 	router.push("/");
-							// });
 						}}
 					>
 						Log out

@@ -1,5 +1,5 @@
 import { db } from "@dokploy/server/db";
-import { apikey, member, users_temp } from "@dokploy/server/db/schema";
+import { apikey, member, userAvatar, users_temp } from "@dokploy/server/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 import { auth } from "../lib/auth";
@@ -248,6 +248,55 @@ export const updateUser = async (userId: string, userData: Partial<User>) => {
 		.then((res) => res[0]);
 
 	return user;
+};
+
+export const setUploadedAvatar = async (params: {
+	userId: string;
+	contentType: string;
+	sizeBytes: number;
+	base64Data: string;
+}) => {
+	const { userId, contentType, sizeBytes, base64Data } = params;
+	// Get current version
+	const current = await db.query.users_temp.findFirst({ where: eq(users_temp.id, userId) });
+	if (!current) {
+		throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+	}
+	const newVersion = (current.avatarVersion ?? 0) + 1;
+
+	// Upsert avatar data
+	await db
+		.insert(userAvatar)
+		.values({ userId, contentType, sizeBytes, data: base64Data })
+		.onConflictDoUpdate({ target: userAvatar.userId, set: { contentType, sizeBytes, data: base64Data, updatedAt: new Date() } });
+
+	// Update user metadata and image URL to route for compatibility
+	const imageUrl = `/api/user/avatar/${userId}?v=${newVersion}`;
+	await db
+		.update(users_temp)
+		.set({ avatarType: "uploaded", avatarPredefinedId: null, avatarVersion: newVersion, image: imageUrl })
+		.where(eq(users_temp.id, userId));
+
+	return { avatarType: "uploaded" as const, avatarVersion: newVersion };
+};
+
+export const setPredefinedAvatar = async (params: { userId: string; predefinedAvatarId: string }) => {
+	const { userId, predefinedAvatarId } = params;
+	const current = await db.query.users_temp.findFirst({ where: eq(users_temp.id, userId) });
+	if (!current) {
+		throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+	}
+	const newVersion = (current.avatarVersion ?? 0) + 1;
+
+	// Remove stored uploaded avatar if exists
+	await db.delete(userAvatar).where(eq(userAvatar.userId, userId));
+
+	await db
+		.update(users_temp)
+		.set({ avatarType: "predefined", avatarPredefinedId: predefinedAvatarId, avatarVersion: newVersion, image: predefinedAvatarId })
+		.where(eq(users_temp.id, userId));
+
+	return { avatarType: "predefined" as const, avatarVersion: newVersion, predefinedAvatarId };
 };
 
 export const createApiKey = async (

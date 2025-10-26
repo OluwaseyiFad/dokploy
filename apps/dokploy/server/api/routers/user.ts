@@ -9,6 +9,8 @@ import {
 	removeUserById,
 	sendEmailNotification,
 	updateUser,
+	setUploadedAvatar,
+	setPredefinedAvatar,
 } from "@dokploy/server";
 import { db } from "@dokploy/server/db";
 import {
@@ -24,11 +26,13 @@ import { TRPCError } from "@trpc/server";
 import * as bcrypt from "bcrypt";
 import { and, asc, eq, gt } from "drizzle-orm";
 import { z } from "zod";
+import { uploadAvatarSchema } from "@/utils/schema";
 import {
 	adminProcedure,
 	createTRPCRouter,
 	protectedProcedure,
 	publicProcedure,
+	uploadProcedure,
 } from "../trpc";
 
 const apiCreateApiKey = z.object({
@@ -175,6 +179,48 @@ export const userRouter = createTRPCRouter({
 					.where(eq(account.userId, ctx.user.id));
 			}
 			return await updateUser(ctx.user.id, input);
+		}),
+	updateAvatar: protectedProcedure
+		.use(uploadProcedure)
+		.input(uploadAvatarSchema)
+		.mutation(async ({ input, ctx }) => {
+			const userId = ctx.user.id;
+
+			// Enforce mutually exclusive inputs
+			const hasFile = !!(input as any).file;
+			const hasPredef = !!(input as any).predefinedAvatarId && (input as any).predefinedAvatarId !== "";
+			if ((hasFile && hasPredef) || (!hasFile && !hasPredef)) {
+				throw new TRPCError({ code: "BAD_REQUEST", message: "Provide either a file or predefinedAvatarId" });
+			}
+
+			if (hasFile) {
+				const file = (input as any).file as File;
+				const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
+				if (!file.type?.startsWith("image/")) {
+					throw new TRPCError({ code: "BAD_REQUEST", message: "Only image files are allowed" });
+				}
+				if (file.size > MAX_IMAGE_SIZE) {
+					throw new TRPCError({ code: "BAD_REQUEST", message: "Image must be 2MB or smaller" });
+				}
+				// Disallow SVG for safety
+				if (file.type === "image/svg+xml") {
+					throw new TRPCError({ code: "BAD_REQUEST", message: "SVG images are not allowed" });
+				}
+
+				const arrayBuf = await file.arrayBuffer();
+				const base64 = Buffer.from(arrayBuf).toString("base64");
+				const result = await setUploadedAvatar({
+					userId,
+					contentType: file.type || "application/octet-stream",
+					sizeBytes: file.size,
+					base64Data: base64,
+				});
+				return result;
+			}
+
+			const predefinedAvatarId = (input as any).predefinedAvatarId as string;
+			const result = await setPredefinedAvatar({ userId, predefinedAvatarId });
+			return result;
 		}),
 	getUserByToken: publicProcedure
 		.input(apiFindOneToken)
