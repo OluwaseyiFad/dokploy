@@ -3,6 +3,7 @@ import {
 	boolean,
 	integer,
 	jsonb,
+	pgEnum,
 	pgTable,
 	text,
 	timestamp,
@@ -15,6 +16,9 @@ import { backups } from "./backups";
 import { projects } from "./project";
 import { schedules } from "./schedule";
 import { certificateType } from "./shared";
+
+// Avatar enum type
+export const avatarType = pgEnum("avatarType", ["predefined", "uploaded"]);
 /**
  * This is an example of how to use the multi-project schema feature of Drizzle ORM. Use the same
  * database instance for multiple projects.
@@ -44,6 +48,10 @@ export const users_temp = pgTable("user_temp", {
 	email: text("email").notNull().unique(),
 	emailVerified: boolean("email_verified").notNull(),
 	image: text("image"),
+	// Avatar fields
+	avatarType: avatarType("avatarType").notNull().default("predefined"),
+	avatarPredefinedId: text("avatarPredefinedId"),
+	avatarVersion: integer("avatarVersion").notNull().default(0),
 	banned: boolean("banned"),
 	banReason: text("ban_reason"),
 	banExpires: timestamp("ban_expires"),
