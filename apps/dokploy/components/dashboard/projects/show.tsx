@@ -35,6 +35,7 @@ import { api } from "@/utils/api";
 import {
 	AlertTriangle,
 	BookIcon,
+	ChevronDown,
 	ExternalLinkIcon,
 	FolderInput,
 	Loader2,
@@ -43,7 +44,7 @@ import {
 	TrashIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { HandleProject } from "./handle-project";
 import { ProjectEnvironment } from "./project-environment";
@@ -55,14 +56,106 @@ export const ShowProjects = () => {
 	const { mutateAsync } = api.project.remove.useMutation();
 	const [searchQuery, setSearchQuery] = useState("");
 
+	// sort options
+	const SORT_KEY = {
+		CREATED_DESC: "createdAt_desc",
+		CREATED_ASC: "createdAt_asc",
+		NAME_ASC: "name_asc",
+		NAME_DESC: "name_desc",
+		SERVICES_ASC: "services_asc",
+		SERVICES_DESC: "services_desc",
+	} as const;
+
+	const SORT_LABEL: Record<string, string> = {
+		[SORT_KEY.NAME_ASC]: "Name (A–Z)",
+		[SORT_KEY.NAME_DESC]: "Name (Z–A)",
+		[SORT_KEY.CREATED_DESC]: "Creation Date (Newest)",
+		[SORT_KEY.CREATED_ASC]: "Creation Date (Oldest)",
+		[SORT_KEY.SERVICES_DESC]: "Services (Most)",
+		[SORT_KEY.SERVICES_ASC]: "Services (Least)",
+	};
+
+	const STORAGE_KEY = "dokploy.projects.sort";
+
+	// Initialize state from localStorage
+	const getInitialSort = () => {
+		try {
+			const saved = localStorage.getItem(STORAGE_KEY);
+			if (saved && SORT_LABEL[saved]) {
+				return saved;
+			}
+		} catch (e) {
+			// ignore, will use default
+		}
+		return SORT_KEY.CREATED_DESC;
+	};
+
+	const [sortOption, setSortOption] = useState<string>(getInitialSort);
+	const isFirstRender = useRef(true);
+
+	// Save to localStorage whenever sortOption changes
+	useEffect(() => {
+		// Skip saving on first render
+		if (isFirstRender.current) {
+			isFirstRender.current = false;
+			return;
+		}
+
+		try {
+			localStorage.setItem(STORAGE_KEY, sortOption);
+		} catch (e) {
+			// ignore
+		}
+	}, [sortOption]);
+
 	const filteredProjects = useMemo(() => {
 		if (!data) return [];
-		return data.filter(
+
+		const filtered = data.filter(
 			(project) =>
 				project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 				project.description?.toLowerCase().includes(searchQuery.toLowerCase()),
 		);
-	}, [data, searchQuery]);
+
+		const withTotals = filtered.map((project) => {
+			const totalServices =
+				(project?.mariadb?.length || 0) +
+				(project?.mongo?.length || 0) +
+				(project?.mysql?.length || 0) +
+				(project?.postgres?.length || 0) +
+				(project?.redis?.length || 0) +
+				(project?.applications?.length || 0) +
+				(project?.compose?.length || 0);
+			return { project, totalServices };
+		});
+
+		withTotals.sort((a, b) => {
+			switch (sortOption) {
+				case SORT_KEY.NAME_ASC:
+					return a.project.name.localeCompare(b.project.name);
+				case SORT_KEY.NAME_DESC:
+					return b.project.name.localeCompare(a.project.name);
+				case SORT_KEY.CREATED_ASC:
+					return (
+						new Date(a.project.createdAt).getTime() -
+						new Date(b.project.createdAt).getTime()
+					);
+				case SORT_KEY.CREATED_DESC:
+					return (
+						new Date(b.project.createdAt).getTime() -
+						new Date(a.project.createdAt).getTime()
+					);
+				case SORT_KEY.SERVICES_ASC:
+					return a.totalServices - b.totalServices;
+				case SORT_KEY.SERVICES_DESC:
+					return b.totalServices - a.totalServices;
+				default:
+					return 0;
+			}
+		});
+
+		return withTotals.map((w) => w.project);
+	}, [data, searchQuery, sortOption]);
 
 	return (
 		<>
@@ -98,14 +191,65 @@ export const ShowProjects = () => {
 								</div>
 							) : (
 								<>
-									<div className="w-full relative">
-										<Input
-											placeholder="Filter projects..."
-											value={searchQuery}
-											onChange={(e) => setSearchQuery(e.target.value)}
-											className="pr-10"
-										/>
-										<Search className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+									<div className="w-full relative flex items-center gap-3">
+										<div className="flex-1 relative">
+											<label htmlFor="project-filter" className="sr-only">
+												Filter projects
+											</label>
+											<Input
+												id="project-filter"
+												placeholder="Filter projects..."
+												value={searchQuery}
+												onChange={(e) => setSearchQuery(e.target.value)}
+												className="pr-10"
+												aria-label="Filter projects by name or description"
+											/>
+											<Search className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" aria-hidden="true" />
+										</div>
+
+										{/* Sort control with accessibility */}
+										<div className="flex-shrink-0">
+											<DropdownMenu>
+												<DropdownMenuTrigger asChild>
+													<Button
+														variant="outline"
+														size="sm"
+														className="flex items-center space-x-2"
+														aria-label={`Sort projects by ${SORT_LABEL[sortOption]}`}
+													>
+														<span className="text-sm">{SORT_LABEL[sortOption]}</span>
+														<ChevronDown className="size-4" aria-hidden="true" />
+													</Button>
+												</DropdownMenuTrigger>
+												<DropdownMenuContent
+													onClick={(e) => e.stopPropagation()}
+													className="w-[220px]"
+													aria-label="Sort options"
+												>
+													<DropdownMenuLabel>Sort projects</DropdownMenuLabel>
+													<DropdownMenuSeparator />
+													<DropdownMenuGroup>
+														{Object.keys(SORT_LABEL).map((key) => (
+															<DropdownMenuItem
+																key={key}
+																onSelect={() => {
+																	setSortOption(key);
+																}}
+																className={key === sortOption ? "bg-accent" : ""}
+																aria-current={key === sortOption ? "true" : undefined}
+															>
+																<span className="text-sm flex items-center justify-between w-full">
+																	{SORT_LABEL[key]}
+																	{key === sortOption && (
+																		<span className="ml-2 text-primary" aria-label="Currently selected">✓</span>
+																	)}
+																</span>
+															</DropdownMenuItem>
+														))}
+													</DropdownMenuGroup>
+												</DropdownMenuContent>
+											</DropdownMenu>
+										</div>
 									</div>
 									{filteredProjects?.length === 0 && (
 										<div className="mt-6 flex h-[50vh] w-full flex-col items-center justify-center space-y-4">
