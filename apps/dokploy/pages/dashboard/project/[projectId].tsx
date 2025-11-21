@@ -67,6 +67,7 @@ import {
 import { cn } from "@/lib/utils";
 import { appRouter } from "@/server/api/root";
 import { api } from "@/utils/api";
+import { useSearchShortcut } from "@/utils/hooks/use-search-shortcut";
 import type { findProjectById } from "@dokploy/server";
 import { validateRequest } from "@dokploy/server/lib/auth";
 import { createServerSideHelpers } from "@trpc/react-query/server";
@@ -91,7 +92,13 @@ import type {
 } from "next";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { type ReactElement, useEffect, useMemo, useState } from "react";
+import {
+	type ReactElement,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { toast } from "sonner";
 import superjson from "superjson";
 
@@ -275,6 +282,11 @@ const Project = (
 	const applications = extractServices(data);
 
 	const [searchQuery, setSearchQuery] = useState("");
+	const searchInputRef = useRef<HTMLInputElement>(null);
+
+	// Enable Cmd+K / Ctrl+K keyboard shortcut for search input
+	useSearchShortcut(searchInputRef);
+
 	const serviceTypes = [
 		{ value: "application", label: "Application", icon: GlobeIcon },
 		{ value: "postgres", label: "PostgreSQL", icon: PostgresqlIcon },
@@ -846,6 +858,7 @@ const Project = (
 										<div className="flex flex-col gap-2 lg:flex-row lg:gap-4 lg:items-center">
 											<div className="w-full relative">
 												<Input
+													ref={searchInputRef}
 													placeholder="Filter services..."
 													value={searchQuery}
 													onChange={(e) => setSearchQuery(e.target.value)}
