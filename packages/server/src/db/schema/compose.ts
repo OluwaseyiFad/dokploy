@@ -177,6 +177,16 @@ export const apiFindCompose = z.object({
 	composeId: z.string().min(1),
 });
 
+export const apiDeployCompose = apiFindCompose.extend({
+	title: z.string().max(255).optional(),
+	description: z.string().max(1000).optional(),
+});
+
+export const apiRedeployCompose = apiFindCompose.extend({
+	title: z.string().max(255).optional(),
+	description: z.string().max(1000).optional(),
+});
+
 export const apiDeleteCompose = z.object({
 	composeId: z.string().min(1),
 	deleteVolumes: z.boolean(),
