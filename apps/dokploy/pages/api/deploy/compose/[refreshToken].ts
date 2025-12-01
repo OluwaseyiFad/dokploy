@@ -43,7 +43,15 @@ export default async function handler(
 			return;
 		}
 
-		const deploymentTitle = extractCommitMessage(req.headers, req.body);
+		// Check for custom title/description in request body (for direct API calls)
+		const customTitle =
+			typeof req.body?.title === "string" ? req.body.title : null;
+		const customDescription =
+			typeof req.body?.description === "string" ? req.body.description : null;
+
+		// Use custom values if provided, otherwise extract from webhook payload
+		const deploymentTitle =
+			customTitle || extractCommitMessage(req.headers, req.body);
 		const deploymentHash = extractHash(req.headers, req.body);
 		const sourceType = composeResult.sourceType;
 
@@ -165,12 +173,20 @@ export default async function handler(
 		}
 
 		try {
+			// Use custom description if provided, otherwise use hash
+			const descriptionLog =
+				customDescription !== null
+					? customDescription
+					: deploymentHash
+						? `Hash: ${deploymentHash}`
+						: "";
+
 			const jobData: DeploymentJob = {
 				composeId: composeResult.composeId as string,
 				titleLog: deploymentTitle,
 				type: "deploy",
 				applicationType: "compose",
-				descriptionLog: `Hash: ${deploymentHash}`,
+				descriptionLog,
 				server: !!composeResult.serverId,
 			};
 
